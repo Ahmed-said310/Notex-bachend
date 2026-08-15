@@ -68,57 +68,31 @@ exports.sendWelcomeEmail = async (email, name) => {
         console.error('Error sending email:', error);
     }
 };
-exports.sendPasswordResetEmail = async (email, resetLink) => {
-    const Link = `${process.env.CLIENT_URL}/reset-password/${resetLink}`;
-
-    const Html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e1e1; border-radius: 10px; }
-            .header { text-align: center; padding-bottom: 20px; }
-            .logo { color: #2563eb; font-size: 28px; font-weight: bold; text-decoration: none; }
-            .content { padding: 20px; background-color: #ffffff; border-radius: 8px; text-align: center; }
-            .footer { text-align: center; font-size: 12px; color: #6b7280; margin-top: 20px; }
-            .button { display: inline-block; padding: 14px 28px; background-color: #dc2626; color: #ffffff !important; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 25px; }
-            .warning { font-size: 13px; color: #6b7280; margin-top: 20px; font-style: italic; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <div class="logo">Notex</div>
-            </div>
-            <div class="content">
-                <h2>Reset Your Password</h2>
-                <p>We received a request to reset the password for your Notex account. No changes have been made yet.</p>
-                <p>Click the button below to choose a new password. <strong>This link will expire in 1 hour.</strong></p>
-                
-                <a href="${Link}" class="button">Reset Password</a>
-
-                <p class="warning">If you did not request a password reset, you can safely ignore this email. Your account remains secure.</p>
-            </div>
-            <div class="footer">
-                <p>&copy; ${new Date().getFullYear()} Notex Inc. All rights reserved.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    `;
-
-    const mailOptions = {
-        from: `"Notex Security" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: 'Reset your Notex Password',
-        html: Html
-    };
+exports.sendPasswordResetEmail = async (email, resetToken) => {
+    const fullResetLink = `${process.env.CLIENT_URL}/reset-password/${resetToken}`;
+    const GOOGLE_SCRIPT_URL = process.env.GOOGLE_SCRIPT_URL;
 
     try {
-        await transporter.sendMail(mailOptions);
-        console.log('Password reset email sent successfully to:', email);
+        const response = await fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'text/plain;charset=utf-8', 
+                // Note: Google Apps Script Web App handles raw text/JSON payloads best
+            },
+            body: JSON.stringify({
+                email: email,
+                resetLink: fullResetLink
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            console.log('Password reset email sent successfully to:', email);
+        } else {
+            console.error('Google Apps Script Error:', result.message);
+        }
     } catch (error) {
-        console.error('Error sending email:', error);
+        console.error('Error triggering Google Apps Script:', error.message);
     }
 };
